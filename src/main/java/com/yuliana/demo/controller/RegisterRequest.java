@@ -3,6 +3,6 @@ package com.yuliana.demo.controller;
 public record RegisterRequest(
 		String email,
 		String password,
-		String nombre) {
+		String nombre,String role) {
 
 }

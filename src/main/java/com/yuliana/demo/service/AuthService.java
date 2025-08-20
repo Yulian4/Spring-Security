@@ -37,7 +37,7 @@ public class AuthService {
 
 	public Mono<TokenResponse> register(RegisterRequest request) {
 		Usuario usuario = Usuario.builder().nombre(request.nombre()).email(request.email())
-				.pasword(passwordEncoder.encode(request.password())).build();
+				.password(passwordEncoder.encode(request.password())).role(request.role()).build();
 
 		return userRepo.save(usuario).flatMap(savedUser -> {
 			String jwtToken = jwtService.generateToken(savedUser);
@@ -54,26 +54,43 @@ public class AuthService {
 		UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(request.email(),
 				request.password());
 
-		return reactiveAuthManager.authenticate(authToken) // Mono<Authentication>
-				.flatMap(authentication -> {
-					Mono<Usuario> userMono = userRepo.findByEmail(request.email())
-							.switchIfEmpty(Mono.error(new UsernameNotFoundException("Usuario no encontrado")));
-					return userMono;
-				}).flatMap(user -> {
-					String jwtToken = jwtService.generateToken(user);
-					String refreshToken = jwtService.generateRefreshToken(user);
+		return reactiveAuthManager.authenticate(authToken).flatMap(authentication -> {
+			Mono<Usuario> userMono = userRepo.findByEmail(request.email())
+					.switchIfEmpty(Mono.error(new UsernameNotFoundException("Usuario no encontrado")));
+			return userMono;
+		}).flatMap(user -> {
+			String jwtToken = jwtService.generateToken(user);
+			String refreshToken = jwtService.generateRefreshToken(user);
 
-					return revokeAllUserTokens(user).then(saveUserToken(user, jwtToken))
-							.thenReturn(new TokenResponse(jwtToken, refreshToken));
+			return revokeAllUserTokens(user).then(saveUserToken(user, jwtToken))
+					.thenReturn(new TokenResponse(jwtToken, refreshToken));
+		});
+	}
+
+	public Mono<Void> logout(String authHeader) {
+		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+			return Mono.error(new IllegalArgumentException("Invalid token"));
+		}
+
+		String jwtToken = authHeader.substring(7);
+
+		return tokenRepo.findByToken(jwtToken)
+				.switchIfEmpty(Mono.error(new IllegalArgumentException("Token not found"))).flatMap(token -> {
+					token.setExpired(true);
+					token.setRevoked(true);
+					return tokenRepo.save(token).then();
 				});
 	}
-	
 
 	private Mono<Void> saveUserToken(Usuario user, String jwtToken) {
 		Token token = Token.builder().token(jwtToken).tokenType(Token.TokenType.BEARER).expired(false).revoked(false)
-				.build();
+				.userId(user.getId()).build();
+		System.out.println("Guardando token: " + jwtToken + " para userId: " + user.getId());
 
-		return tokenRepo.save(token).then();
+		return tokenRepo.save(token)
+				.doOnNext(
+						t -> System.out.println(">>> Token guardado correctamente para el usuario: " + user.getEmail()))
+				.then();
 	}
 
 	private Mono<Void> revokeAllUserTokens(Usuario user) {
@@ -90,31 +107,29 @@ public class AuthService {
 			return tokenRepo.saveAll(tokens).then();
 		});
 	}
-	public Mono<TokenResponse> refreshToken(final String authHeader){
-    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-        return Mono.error(new IllegalArgumentException("Invalid Bearer Token"));
-    }
 
-    final String refreshToken = authHeader.substring(7);
-    final String userEmail;
-    try {
-        userEmail = jwtService.extractUsername(refreshToken);
-    } catch (Exception e) {
-        return Mono.error(new IllegalArgumentException("Invalid Refresh Token"));
-    }
+	public Mono<TokenResponse> refreshToken(final String authHeader) {
+		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+			return Mono.error(new IllegalArgumentException("Invalid Bearer Token"));
+		}
 
-    return userRepo.findByEmail(userEmail)
-            .switchIfEmpty(Mono.error(new UsernameNotFoundException(userEmail)))
-            .flatMap(user -> {
-                if (!jwtService.isTokenValid(refreshToken, user)) {
-                    return Mono.error(new IllegalArgumentException("Invalid Refresh Token"));
-                }
-                final String accessToken = jwtService.generateToken(user);
-                return revokeAllUserTokens(user)
-                        .then(saveUserToken(user, accessToken))
-                        .thenReturn(new TokenResponse(accessToken, refreshToken));
-            });
-}
+		final String refreshToken = authHeader.substring(7);
+		final String userEmail;
+		try {
+			userEmail = jwtService.extractUsername(refreshToken);
+		} catch (Exception e) {
+			return Mono.error(new IllegalArgumentException("Invalid Refresh Token"));
+		}
 
+		return userRepo.findByEmail(userEmail).switchIfEmpty(Mono.error(new UsernameNotFoundException(userEmail)))
+				.flatMap(user -> {
+					if (!jwtService.isTokenValid(refreshToken, user)) {
+						return Mono.error(new IllegalArgumentException("Invalid Refresh Token"));
+					}
+					final String accessToken = jwtService.generateToken(user);
+					return revokeAllUserTokens(user).then(saveUserToken(user, accessToken))
+							.thenReturn(new TokenResponse(accessToken, refreshToken));
+				});
+	}
 
 }
