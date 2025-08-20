@@ -50,5 +50,11 @@ public class AuthController {
 	refresh(@RequestHeader(HttpHeaders.AUTHORIZATION) final String authHeader ){
 		return service.refreshToken(authHeader);
 	}
+	@PostMapping("/logout")
+	public Mono<ResponseEntity<String>> logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader) {
+	    return service.logout(authHeader)
+	                 .thenReturn(ResponseEntity.ok("Logout successful"));
+	}
+
 	
 }

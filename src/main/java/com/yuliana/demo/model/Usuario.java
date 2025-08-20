@@ -1,39 +1,77 @@
 package com.yuliana.demo.model;
 
-import java.util.List;
+import java.util.Collection;
+import java.util.Collections;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
-
-import com.yuliana.demo.repository.Token;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Builder
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "usuario")
-public class Usuario {
+public class Usuario implements UserDetails {
 
 	@Id
-	Long id;
+	private Long id;
 	private String nombre;
 	private String email;
 	private String password;
+	private String role;
+
+	@Override
+	public Collection<? extends GrantedAuthority> getAuthorities() {
+		return Collections.singleton(() -> "ROLE_" + role.toUpperCase());
+	}
+
+	@Override
+	public String getUsername() {
+
+		return this.email;
+	}
+
+	@Override
+	public String getPassword() {
+		return this.password;
+	}
+
+	@Override
+	public boolean isAccountNonExpired() {
+		return true;
+	}
+
+	@Override
+	public boolean isAccountNonLocked() {
+		return true;
+	}
+
+	@Override
+	public boolean isCredentialsNonExpired() {
+		return true;
+	}
+
+	@Override
+	public boolean isEnabled() {
+		return true;
+	}
 
 	public Usuario() {
 
 	}
 
-	public Usuario(Long id, String nombre, String email, String password) {
+	public Usuario(Long id, String nombre, String email, String password, String role) {
 		this.id = id;
 		this.nombre = nombre;
 		this.email = email;
 		this.password = password;
+		this.role = role;
 	}
 
 	public Long getId() {
@@ -60,14 +98,17 @@ public class Usuario {
 		this.email = email;
 	}
 
-	public String getPassword() {
-		return password;
-	}
-
 	public void setPassword(String password) {
 		this.password = password;
 	}
 
+	public String getRole() {
+		return role;
+	}
+
+	public void setRole(String role) {
+		this.role = role;
+	}
 
 	public static Builder builder() {
 		return new Builder();
@@ -77,7 +118,8 @@ public class Usuario {
 		private Long id;
 		private String nombre;
 		private String email;
-		private String pasword;
+		private String password;
+		private String role;
 
 		public Builder id(Long id) {
 			this.id = id;
@@ -94,13 +136,19 @@ public class Usuario {
 			return this;
 		}
 
-		public Builder pasword(String pasword) {
-			this.pasword = pasword;
+		public Builder password(String password) {
+			this.password = password;
+			return this;
+		}
+
+		public Builder role(String role) {
+			this.role = role;
 			return this;
 		}
 
 		public Usuario build() {
-			return new Usuario(id, nombre, email, pasword);
+			return new Usuario(id, nombre, email, password, role);
 		}
 	}
+
 }
