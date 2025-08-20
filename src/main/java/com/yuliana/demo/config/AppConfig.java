@@ -15,6 +15,7 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 
 import com.yuliana.demo.dto.UserRepository;
 
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
@@ -42,7 +43,7 @@ public class AppConfig {
 	    return http
 	        .csrf(ServerHttpSecurity.CsrfSpec::disable)
 	        .authorizeExchange(exchanges -> exchanges
-	            .pathMatchers("/api/auth/login", "/api/auth/register").permitAll()
+	            .pathMatchers("/api/auth/login", "/api/auth/register","/api/auth/refresh").permitAll()
 	            .anyExchange().authenticated()
 	        )
 	        .formLogin(ServerHttpSecurity.FormLoginSpec::disable)

@@ -13,7 +13,7 @@ spring:
   r2dbc:
     url: r2dbc:mysql://localhost:3306/spring_login
     username: root
-    password: Yuliaña280719**
+    password: 
 
   sql:
     init:
